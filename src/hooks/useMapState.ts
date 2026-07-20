@@ -66,13 +66,21 @@ export function useMapState() {
   const [state, setState] = useState<MapState>(loadLocal);
   const saveTimer = useRef<number | null>(null);
   const skipNextPost = useRef(true);
+  // If the user changes anything before the initial server fetch resolves,
+  // that fetch must not clobber their edit with the older saved state.
+  const hasLocalEdit = useRef(false);
+
+  const setStateAndMarkEdited: typeof setState = useCallback((update) => {
+    hasLocalEdit.current = true;
+    setState(update);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/state")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || !isMapState(data)) return;
+        if (cancelled || hasLocalEdit.current || !isMapState(data)) return;
         skipNextPost.current = true;
         setState({
           title: data.title,
@@ -110,39 +118,39 @@ export function useMapState() {
   }, [state]);
 
   const setTitle = useCallback((title: string) => {
-    setState((s) => ({ ...s, title }));
-  }, []);
+    setStateAndMarkEdited((s) => ({ ...s, title }));
+  }, [setStateAndMarkEdited]);
 
   const addCompany = useCallback((draft: CompanyDraft): Company => {
     const company: Company = { ...draft, id: makeId() };
-    setState((s) => ({ ...s, companies: [...s.companies, company] }));
+    setStateAndMarkEdited((s) => ({ ...s, companies: [...s.companies, company] }));
     return company;
-  }, []);
+  }, [setStateAndMarkEdited]);
 
   const updateCompany = useCallback((id: string, draft: CompanyDraft) => {
-    setState((s) => ({
+    setStateAndMarkEdited((s) => ({
       ...s,
       companies: s.companies.map((c) => (c.id === id ? { ...draft, id } : c)),
     }));
-  }, []);
+  }, [setStateAndMarkEdited]);
 
   const deleteCompany = useCallback((id: string) => {
-    setState((s) => ({
+    setStateAndMarkEdited((s) => ({
       ...s,
       companies: s.companies.filter((c) => c.id !== id),
     }));
-  }, []);
+  }, [setStateAndMarkEdited]);
 
   const renameLabel = useCallback((id: string, label: string) => {
-    setState((s) => ({
+    setStateAndMarkEdited((s) => ({
       ...s,
       labelOverrides: { ...s.labelOverrides, [id]: label },
     }));
-  }, []);
+  }, [setStateAndMarkEdited]);
 
   const resetToSeed = useCallback(() => {
-    setState({ title: DEFAULT_TITLE, companies: SEED_COMPANIES, labelOverrides: {} });
-  }, []);
+    setStateAndMarkEdited({ title: DEFAULT_TITLE, companies: SEED_COMPANIES, labelOverrides: {} });
+  }, [setStateAndMarkEdited]);
 
   const exportJson = useCallback(() => {
     const blob = new Blob([JSON.stringify(state, null, 2)], {
@@ -169,7 +177,7 @@ export function useMapState() {
           alert("That file doesn't look like a valid market map export.");
           return;
         }
-        setState({
+        setStateAndMarkEdited({
           title: typeof parsed.title === "string" ? parsed.title : DEFAULT_TITLE,
           companies: companiesList,
           labelOverrides:
@@ -181,7 +189,7 @@ export function useMapState() {
         alert("That file doesn't look like a valid market map export.");
       }
     });
-  }, []);
+  }, [setStateAndMarkEdited]);
 
   return {
     title: state.title,
