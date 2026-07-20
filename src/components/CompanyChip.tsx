@@ -1,17 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Company } from "../types";
+import { foundedYearBucket } from "../utils/foundedYear";
 import { CompanyLogo } from "./CompanyLogo";
 
 interface CompanyChipProps {
   company: Company;
-  x?: number;
-  y?: number;
   onEdit: (company: Company) => void;
   onDelete: (id: string) => void;
   onDragEnd?: (company: Company, clientX: number, clientY: number) => void;
   onDragStart?: () => void;
-  /** "map": absolutely positioned + draggable. "grid": static, packed in flow. */
+  query?: string;
+  /** "map": draggable, sits in a plot cell's wrap grid. "grid": static, Grid view card. */
   variant?: "map" | "grid";
 }
 
@@ -19,12 +19,11 @@ const DRAG_THRESHOLD = 5;
 
 export function CompanyChip({
   company,
-  x = 0,
-  y = 0,
   onEdit,
   onDelete,
   onDragEnd,
   onDragStart,
+  query,
   variant = "map",
 }: CompanyChipProps) {
   const chipRef = useRef<HTMLDivElement>(null);
@@ -40,6 +39,14 @@ export function CompanyChip({
   } | null>(null);
 
   const open = hovering || pinned;
+  const bucket = foundedYearBucket(company.foundedYear);
+
+  const matchState =
+    !query || !query.trim()
+      ? "neutral"
+      : company.name.toLowerCase().includes(query.trim().toLowerCase())
+      ? "match"
+      : "dim";
 
   const clearCloseTimer = () => {
     if (closeTimer.current) {
@@ -92,22 +99,15 @@ export function CompanyChip({
 
   useEffect(() => () => clearCloseTimer(), []);
 
-  const style: React.CSSProperties =
-    variant !== "map"
-      ? {}
-      : dragPos
-      ? {
-          position: "fixed",
-          left: dragPos.x,
-          top: dragPos.y,
-          transform: "translate(-50%, -50%)",
-          zIndex: 500,
-        }
-      : {
-          left: x,
-          top: y,
-          transform: "translate(-50%, -50%)",
-        };
+  const style: React.CSSProperties = dragPos
+    ? {
+        position: "fixed",
+        left: dragPos.x,
+        top: dragPos.y,
+        transform: "translate(-50%, -50%)",
+        zIndex: 500,
+      }
+    : {};
 
   return (
     <>
@@ -115,6 +115,8 @@ export function CompanyChip({
         ref={chipRef}
         className={`company-chip${variant === "grid" ? " company-chip-grid" : ""}${
           dragPos ? " company-chip-dragging" : ""
+        }${matchState === "dim" ? " company-chip-dim" : ""}${
+          matchState === "match" ? " company-chip-match" : ""
         }`}
         style={style}
         onPointerDown={handlePointerDown}
@@ -132,6 +134,13 @@ export function CompanyChip({
       >
         <CompanyLogo name={company.name} websiteUrl={company.websiteUrl} size={22} />
         <span className="company-chip-name">{company.name}</span>
+        {bucket && (
+          <span
+            className="company-chip-dot"
+            style={{ backgroundColor: bucket.color }}
+            title={`Founded ${company.foundedYear}`}
+          />
+        )}
       </div>
       {open && !dragPos && (
         <CompanyPopover

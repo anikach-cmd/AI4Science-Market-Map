@@ -2,14 +2,16 @@ export interface Company {
   id: string;
   name: string;
   websiteUrl: string;
-  /** Must be one of the values in DOMAINS (src/config/domains.ts). */
+  /** Leaf id from DOMAIN_AXIS (src/config/taxonomy.ts). */
   domain: string;
-  /** 0-100 continuous "full-stack execution / autonomy" score. */
-  execution: number;
+  /** Leaf id from CAPABILITY_AXIS (src/config/taxonomy.ts). */
+  capabilityRow: string;
   description: string;
-  /** Why this company is placed at this domain/execution position. */
+  /** Why this company is placed at this domain/capability position. */
   rationale: string;
   tag?: string;
+  /** Optional third variable, shown as a corner-dot legend on the chip. */
+  foundedYear?: number;
 }
 
 export type CompanyDraft = Omit<Company, "id">;

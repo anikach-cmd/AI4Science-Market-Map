@@ -1,26 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { bandForExecution, type Band } from "../config/domains";
+import { useMemo, useState } from "react";
+import {
+  CAPABILITY_AXIS,
+  DOMAIN_AXIS,
+  flattenLeaves,
+  type AxisGroup,
+} from "../config/taxonomy";
 import type { Company, CompanyDraft } from "../types";
-import { layoutMap, pixelToDomainIndex, pixelToExecution } from "../utils/mapLayout";
+import { cellKey, groupIntoCells, MAX_INLINE_CHIPS } from "../utils/mapLayout";
+import { CellDetailPanel } from "./CellDetailPanel";
 import { CompanyChip } from "./CompanyChip";
 import { CompanyForm } from "./CompanyForm";
 import { EditableText } from "./EditableText";
+import { Legend } from "./Legend";
 
 interface MapViewProps {
   companies: Company[];
   onAdd: (draft: CompanyDraft) => void;
   onUpdate: (id: string, draft: CompanyDraft) => void;
   onDelete: (id: string) => void;
-  domains: string[];
-  onRenameDomain: (index: number, name: string) => void;
-  onAddDomain: (name: string) => void;
-  onRemoveDomain: (index: number) => void;
-  onMoveDomain: (index: number, dir: -1 | 1) => void;
-  bands: Band[];
-  onRenameBand: (index: number, name: string) => void;
-  onAddBand: () => void;
-  onRemoveBand: (index: number) => void;
-  onMoveBand: (index: number, dir: -1 | 1) => void;
+  labelOverrides: Record<string, string>;
+  onRenameLabel: (id: string, label: string) => void;
+  query: string;
+}
+
+function labelFor(overrides: Record<string, string>, id: string, fallback: string) {
+  return overrides[id] ?? fallback;
 }
 
 export function MapView({
@@ -28,83 +32,97 @@ export function MapView({
   onAdd,
   onUpdate,
   onDelete,
-  domains,
-  onRenameDomain,
-  onAddDomain,
-  onRemoveDomain,
-  onMoveDomain,
-  bands,
-  onRenameBand,
-  onAddBand,
-  onRemoveBand,
-  onMoveBand,
+  labelOverrides,
+  onRenameLabel,
+  query,
 }: MapViewProps) {
-  const plotRef = useRef<HTMLDivElement>(null);
-  const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [newDraft, setNewDraft] = useState<CompanyDraft | null>(null);
+  const [expandedCell, setExpandedCell] = useState<{
+    domainId: string;
+    capabilityId: string;
+  } | null>(null);
 
-  const bandLabels = useMemo(() => bands.map((b) => b.name), [bands]);
+  const domainLeaves = useMemo(() => flattenLeaves(DOMAIN_AXIS), []);
+  const capabilityLeaves = useMemo(() => flattenLeaves(CAPABILITY_AXIS), []);
 
-  useEffect(() => {
-    const el = plotRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect;
-      setPlotSize({ width, height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  const cells = useMemo(() => groupIntoCells(companies), [companies]);
 
-  const placedChips = useMemo(
-    () => layoutMap(companies, domains, plotSize.width, plotSize.height),
-    [companies, domains, plotSize.width, plotSize.height]
-  );
+  const domainCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    companies.forEach((c) => m.set(c.domain, (m.get(c.domain) ?? 0) + 1));
+    return m;
+  }, [companies]);
 
-  const bandCounts = useMemo(() => {
-    const counts = new Map<string, number>(bands.map((b) => [b.name, 0]));
-    companies.forEach((c) => {
-      const band = bandForExecution(c.execution, bands);
-      counts.set(band.name, (counts.get(band.name) ?? 0) + 1);
-    });
-    return counts;
-  }, [companies, bands]);
+  const capabilityCounts = useMemo(() => {
+    const m = new Map<string, number>();
+    companies.forEach((c) =>
+      m.set(c.capabilityRow, (m.get(c.capabilityRow) ?? 0) + 1)
+    );
+    return m;
+  }, [companies]);
 
-  const emptyDraft = (domain: string, execution: number): CompanyDraft => ({
+  const emptyDraft = (domain: string, capabilityRow: string): CompanyDraft => ({
     name: "",
     websiteUrl: "",
     domain,
-    execution,
+    capabilityRow,
     description: "",
     rationale: "",
     tag: "",
   });
 
-  const handlePlotClick = (e: React.MouseEvent) => {
+  const handleCellClick = (
+    e: React.MouseEvent,
+    domainId: string,
+    capabilityId: string
+  ) => {
     if (e.target !== e.currentTarget) return;
-    const rect = plotRef.current!.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const execution = pixelToExecution(y, rect.height);
-    const domainIdx = pixelToDomainIndex(x, rect.width, domains.length);
-    setNewDraft(emptyDraft(domains[domainIdx], execution));
+    setNewDraft(emptyDraft(domainId, capabilityId));
   };
 
-  const handleDragEnd = (company: Company, clientX: number, clientY: number) => {
-    const rect = plotRef.current!.getBoundingClientRect();
-    const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
-    const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
-    const execution = pixelToExecution(y, rect.height);
-    const domainIdx = pixelToDomainIndex(x, rect.width, domains.length);
+  const handleDragEnd = (
+    company: Company,
+    clientX: number,
+    clientY: number
+  ) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    const cellEl = (el as HTMLElement | null)?.closest<HTMLElement>(".map-cell");
+    if (!cellEl) return;
+    const domain = cellEl.dataset.domain;
+    const capabilityRow = cellEl.dataset.capability;
+    if (!domain || !capabilityRow) return;
     const { id, ...rest } = company;
-    onUpdate(id, { ...rest, execution, domain: domains[domainIdx] });
+    onUpdate(id, { ...rest, domain, capabilityRow });
   };
 
-  const handleAddDomain = () => {
-    const n = domains.filter((d) => d.startsWith("New domain")).length;
-    onAddDomain(n === 0 ? "New domain" : `New domain ${n + 1}`);
-  };
+  const renderGroupSpans = (
+    groups: AxisGroup[],
+    direction: "row" | "column"
+  ) =>
+    groups.map((group) => {
+      const count = group.leaves.length;
+      const label = group.label ? labelFor(labelOverrides, group.id, group.label) : null;
+      return (
+        <div
+          key={group.id}
+          className={`axis-group-span axis-group-span-${direction}${
+            label ? " axis-group-span-bracket" : ""
+          }`}
+          style={{ flexGrow: count, flexBasis: 0 }}
+        >
+          {label && (
+            <EditableText
+              className="axis-group-label"
+              inputClassName="axis-group-label-input"
+              value={label}
+              onCommit={(name) => onRenameLabel(group.id, name)}
+              title="Click to rename"
+            />
+          )}
+        </div>
+      );
+    });
 
   return (
     <div className="map-view">
@@ -114,133 +132,117 @@ export function MapView({
           Logo chip — hover for details, click to pin, drag to reposition
         </div>
         <div className="legend-item">Click empty space to add a company</div>
-        <div className="legend-item legend-spacer" />
-        <button className="btn btn-ghost btn-sm" onClick={onAddBand}>
-          + Add band
-        </button>
-        <button className="btn btn-ghost btn-sm" onClick={handleAddDomain}>
-          + Add domain column
-        </button>
+        <div className="legend-spacer" />
+        <Legend />
       </div>
 
       <div className="map-grid-wrapper">
         <div className="map-y-axis">
-          {bands
-            .map((band, index) => ({ band, index }))
-            .slice()
-            .reverse()
-            .map(({ band, index }) => (
-              <div
-                key={index}
-                className="band-label"
-                style={{ flex: band.max - band.min }}
-              >
-                <div className="axis-item-controls">
-                  <button
-                    title="Move toward top"
-                    onClick={() => onMoveBand(index, 1)}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    title="Move toward bottom"
-                    onClick={() => onMoveBand(index, -1)}
-                  >
-                    ↓
-                  </button>
-                  {bands.length > 1 && (
-                    <button
-                      title="Remove band"
-                      onClick={() => onRemoveBand(index)}
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
+          <div className="y-axis-groups">
+            {renderGroupSpans(CAPABILITY_AXIS, "column")}
+          </div>
+          <div className="y-axis-leaves">
+            {capabilityLeaves.map((leaf) => (
+              <div key={leaf.id} className="band-label" style={{ flexGrow: 1, flexBasis: 0 }}>
                 <EditableText
                   className="band-label-text"
                   inputClassName="band-label-input"
-                  value={band.name}
-                  onCommit={(name) => onRenameBand(index, name)}
-                  title="Click to rename band"
+                  value={labelFor(labelOverrides, leaf.id, leaf.label)}
+                  onCommit={(name) => onRenameLabel(leaf.id, name)}
+                  title="Click to rename"
                 />
                 <span className="band-label-count">
-                  {bandCounts.get(band.name) ?? 0} co.
+                  {capabilityCounts.get(leaf.id) ?? 0} co.
                 </span>
               </div>
             ))}
+          </div>
         </div>
 
         <div className="map-main">
           <div className="map-columns-header">
-            {domains.map((d, index) => (
-              <div key={index} className="map-column-header">
-                <EditableText
-                  className="map-column-header-text"
-                  inputClassName="map-column-header-input"
-                  value={d}
-                  onCommit={(name) => onRenameDomain(index, name)}
-                  title="Click to rename domain"
-                />
-                <div className="axis-item-controls axis-item-controls-row">
-                  <button
-                    title="Move left"
-                    onClick={() => onMoveDomain(index, -1)}
-                  >
-                    ←
-                  </button>
-                  <button
-                    title="Move right"
-                    onClick={() => onMoveDomain(index, 1)}
-                  >
-                    →
-                  </button>
-                  {domains.length > 1 && (
-                    <button
-                      title="Remove domain"
-                      onClick={() => onRemoveDomain(index)}
-                    >
-                      ×
-                    </button>
-                  )}
+            <div className="x-axis-groups">
+              {renderGroupSpans(DOMAIN_AXIS, "row")}
+            </div>
+            <div className="x-axis-leaves">
+              {domainLeaves.map((leaf) => (
+                <div key={leaf.id} className="map-column-header" style={{ flexGrow: 1, flexBasis: 0 }}>
+                  <EditableText
+                    className="map-column-header-text"
+                    inputClassName="map-column-header-input"
+                    value={labelFor(labelOverrides, leaf.id, leaf.label)}
+                    onCommit={(name) => onRenameLabel(leaf.id, name)}
+                    title="Click to rename"
+                  />
+                  <span className="map-column-header-count">
+                    {domainCounts.get(leaf.id) ?? 0} co.
+                  </span>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="map-plot">
+            {domainLeaves.map((domainLeaf) => (
+              <div
+                key={domainLeaf.id}
+                className="map-column-track"
+                style={{ flexGrow: 1, flexBasis: 0 }}
+              >
+                {capabilityLeaves.map((capLeaf) => {
+                  const key = cellKey(domainLeaf.id, capLeaf.id);
+                  const cellCompanies = cells.get(key) ?? [];
+                  const q = query.trim().toLowerCase();
+                  const ordered = q
+                    ? [...cellCompanies].sort((a, b) => {
+                        const aMatch = a.name.toLowerCase().includes(q) ? 0 : 1;
+                        const bMatch = b.name.toLowerCase().includes(q) ? 0 : 1;
+                        return aMatch - bMatch || a.name.localeCompare(b.name);
+                      })
+                    : cellCompanies;
+                  const overflow = ordered.length > MAX_INLINE_CHIPS;
+                  const visible = overflow
+                    ? ordered.slice(0, MAX_INLINE_CHIPS - 1)
+                    : ordered;
+                  const hiddenCount = ordered.length - visible.length;
+
+                  return (
+                    <div
+                      key={capLeaf.id}
+                      className="map-cell"
+                      data-domain={domainLeaf.id}
+                      data-capability={capLeaf.id}
+                      onClick={(e) => handleCellClick(e, domainLeaf.id, capLeaf.id)}
+                    >
+                      {visible.map((company) => (
+                        <CompanyChip
+                          key={company.id}
+                          company={company}
+                          query={query}
+                          onEdit={setEditingCompany}
+                          onDelete={onDelete}
+                          onDragEnd={handleDragEnd}
+                        />
+                      ))}
+                      {hiddenCount > 0 && (
+                        <button
+                          className="cell-more-chip"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedCell({
+                              domainId: domainLeaf.id,
+                              capabilityId: capLeaf.id,
+                            });
+                          }}
+                        >
+                          +{hiddenCount} more
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ))}
-          </div>
-
-          <div className="map-plot" ref={plotRef} onClick={handlePlotClick}>
-            {/* band gridlines */}
-            {bands.slice(0, -1).map((band, i) => (
-              <div
-                key={i}
-                className="band-gridline"
-                style={{ top: `${100 - band.max}%` }}
-              />
-            ))}
-            {/* column gridlines */}
-            {domains.slice(1).map((_, i) => (
-              <div
-                key={i}
-                className="column-gridline"
-                style={{ left: `${((i + 1) / domains.length) * 100}%` }}
-              />
-            ))}
-
-            {placedChips.map(({ company, x, y }) => (
-              <CompanyChip
-                key={company.id}
-                company={company}
-                x={x}
-                y={y}
-                onEdit={setEditingCompany}
-                onDelete={onDelete}
-                onDragEnd={handleDragEnd}
-              />
-            ))}
-          </div>
-
-          <div className="map-x-axis-label">
-            Scientific domain — narrow specialist → generalist
           </div>
         </div>
       </div>
@@ -249,8 +251,6 @@ export function MapView({
         <CompanyForm
           initial={newDraft}
           isEditing={false}
-          domains={domains}
-          bandLabels={bandLabels}
           onCancel={() => setNewDraft(null)}
           onSave={(draft) => {
             onAdd(draft);
@@ -263,8 +263,6 @@ export function MapView({
         <CompanyForm
           initial={editingCompany}
           isEditing
-          domains={domains}
-          bandLabels={bandLabels}
           onCancel={() => setEditingCompany(null)}
           onDelete={() => {
             onDelete(editingCompany.id);
@@ -273,6 +271,27 @@ export function MapView({
           onSave={(draft) => {
             onUpdate(editingCompany.id, draft);
             setEditingCompany(null);
+          }}
+        />
+      )}
+
+      {expandedCell && (
+        <CellDetailPanel
+          domainLabel={labelFor(
+            labelOverrides,
+            expandedCell.domainId,
+            domainLeaves.find((l) => l.id === expandedCell.domainId)?.label ?? ""
+          )}
+          capabilityLabel={labelFor(
+            labelOverrides,
+            expandedCell.capabilityId,
+            capabilityLeaves.find((l) => l.id === expandedCell.capabilityId)?.label ?? ""
+          )}
+          companies={cells.get(cellKey(expandedCell.domainId, expandedCell.capabilityId)) ?? []}
+          onClose={() => setExpandedCell(null)}
+          onEdit={(company) => {
+            setExpandedCell(null);
+            setEditingCompany(company);
           }}
         />
       )}

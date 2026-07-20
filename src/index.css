@@ -105,6 +105,23 @@ button {
   flex-wrap: wrap;
 }
 
+.search-input {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--cream);
+  color: var(--ink);
+  width: 180px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--sage);
+  width: 220px;
+}
+
 .view-toggle {
   display: flex;
   background: var(--cream-dark);
@@ -220,18 +237,90 @@ button {
 .map-grid-wrapper {
   flex: 1;
   display: flex;
-  gap: 4px;
-  min-height: 560px;
+  gap: 0;
+  min-height: 620px;
 }
 
 .map-y-axis {
   display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+  padding-top: 64px;
+  padding-bottom: 0;
+}
+
+.y-axis-groups {
+  display: flex;
   flex-direction: column;
-  width: 168px;
+  width: 26px;
   flex-shrink: 0;
   gap: 4px;
-  padding-top: 44px;
-  padding-bottom: 22px;
+}
+
+.axis-group-span-column {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.axis-group-span-column.axis-group-span-bracket {
+  border-right: 2px solid var(--sage);
+  border-top: 2px solid var(--sage);
+  border-bottom: 2px solid var(--sage);
+  border-radius: 8px 0 0 8px;
+  margin: 2px 0;
+}
+
+.axis-group-span-row.axis-group-span-bracket {
+  border-left: 2px solid var(--sage);
+  border-right: 2px solid var(--sage);
+  border-top: 2px solid var(--sage);
+  border-radius: 8px 8px 0 0;
+  margin: 0 2px;
+}
+
+.axis-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--sage-dark);
+  cursor: text;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.axis-group-span-column .axis-group-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.03em;
+  padding: 6px 2px;
+}
+
+.axis-group-span-row .axis-group-label {
+  padding: 4px 6px;
+}
+
+.axis-group-label:hover {
+  background: var(--cream-dark);
+}
+
+.axis-group-label-input {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: inherit;
+  border: 1px solid var(--sage);
+  border-radius: 4px;
+  padding: 2px 4px;
+  background: var(--cream);
+  color: var(--ink);
+  writing-mode: horizontal-tb;
+}
+
+.y-axis-leaves {
+  display: flex;
+  flex-direction: column;
+  width: 158px;
+  flex-shrink: 0;
+  gap: 4px;
 }
 
 .band-label {
@@ -243,10 +332,7 @@ button {
   flex-direction: column;
   justify-content: center;
   gap: 4px;
-}
-
-.band-label:nth-child(2) {
-  background: var(--sage-dark);
+  min-height: 0;
 }
 
 .band-label-text {
@@ -281,35 +367,6 @@ button {
   opacity: 0.85;
 }
 
-.axis-item-controls {
-  display: flex;
-  gap: 3px;
-  opacity: 0.5;
-}
-
-.axis-item-controls:hover {
-  opacity: 1;
-}
-
-.axis-item-controls button {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 11px;
-  padding: 1px 5px;
-  border-radius: 3px;
-  line-height: 1.3;
-  color: inherit;
-}
-
-.band-label .axis-item-controls button:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.map-column-header .axis-item-controls button:hover {
-  background: var(--cream-dark);
-}
-
 .map-main {
   flex: 1;
   display: flex;
@@ -319,11 +376,24 @@ button {
 
 .map-columns-header {
   display: flex;
-  height: 44px;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.x-axis-groups {
+  display: flex;
+  height: 22px;
+  gap: 2px;
+}
+
+.x-axis-leaves {
+  display: flex;
+  height: 42px;
+  gap: 2px;
 }
 
 .map-column-header {
-  flex: 1;
   color: var(--sage-dark);
   display: flex;
   flex-direction: column;
@@ -365,55 +435,70 @@ button {
   color: var(--ink);
 }
 
-.axis-item-controls-row {
-  opacity: 0.5;
-}
-
-.axis-item-controls-row:hover {
-  opacity: 1;
+.map-column-header-count {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-soft);
 }
 
 .map-plot {
-  position: relative;
   flex: 1;
-  background: var(--card-bg);
+  display: flex;
+  gap: 2px;
+  background: var(--border);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.map-column-track {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.map-cell {
+  flex: 1;
+  min-height: 64px;
+  background: var(--card-bg);
+  padding: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
   cursor: crosshair;
-  overflow: visible;
+  transition: background-color 0.15s ease;
 }
 
-.band-gridline {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 0;
-  border-top: 1px dashed var(--border);
-  pointer-events: none;
+.map-cell:hover {
+  background: var(--cream-dark);
 }
 
-.column-gridline {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 0;
-  border-left: 1px solid var(--border);
-  pointer-events: none;
-  opacity: 0.6;
-}
-
-.map-x-axis-label {
-  text-align: center;
+.cell-more-chip {
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
   font-size: 11.5px;
-  color: var(--ink-soft);
-  padding-top: 8px;
-  font-weight: 500;
+  font-weight: 700;
+  color: var(--sage-dark);
+  background: var(--cream-dark);
+  border: 1px dashed var(--sage);
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  height: 30px;
+}
+
+.cell-more-chip:hover {
+  background: var(--sage);
+  color: white;
+  border-style: solid;
 }
 
 /* ---------------- Company chip ---------------- */
 
 .company-chip {
-  position: absolute;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -423,10 +508,10 @@ button {
   padding: 4px 12px 4px 4px;
   cursor: grab;
   box-shadow: 0 1px 3px rgba(35, 38, 34, 0.12);
-  max-width: 150px;
   touch-action: none;
   user-select: none;
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  position: relative;
 }
 
 .company-chip:hover {
@@ -441,17 +526,32 @@ button {
 }
 
 .company-chip-grid {
-  position: static;
   cursor: pointer;
-  max-width: 168px;
+}
+
+.company-chip-dim {
+  opacity: 0.28;
+}
+
+.company-chip-match {
+  border-color: var(--sage);
+  box-shadow: 0 0 0 2px rgba(111, 143, 122, 0.35);
+}
+
+.company-chip-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--card-bg);
 }
 
 .company-chip-name {
   font-size: 12px;
   font-weight: 600;
   color: var(--ink);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -678,20 +778,6 @@ button {
   border-color: var(--sage);
 }
 
-.form-field input[type="range"] {
-  padding: 0;
-  border: none;
-  background: transparent;
-  accent-color: var(--sage);
-}
-
-.slider-scale {
-  display: flex;
-  justify-content: space-between;
-  font-size: 10.5px;
-  color: var(--ink-soft);
-}
-
 .modal-actions {
   display: flex;
   align-items: center;
@@ -703,4 +789,102 @@ button {
   display: flex;
   gap: 8px;
   margin-left: auto;
+}
+
+/* ---------------- Founded-year legend ---------------- */
+
+.legend-founded-year {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.legend-founded-year-title {
+  font-weight: 600;
+}
+
+.legend-founded-year-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend-founded-year-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+/* ---------------- Cell detail panel ---------------- */
+
+.cell-detail-card {
+  max-width: 560px;
+}
+
+.cell-detail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cell-detail-sep {
+  color: var(--sage);
+  font-weight: 400;
+}
+
+.cell-detail-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.cell-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.cell-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cell-detail-row:hover {
+  background: var(--cream-dark);
+}
+
+.cell-detail-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cell-detail-row-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.cell-detail-row-desc {
+  font-size: 12px;
+  color: var(--ink-soft);
+  line-height: 1.4;
 }

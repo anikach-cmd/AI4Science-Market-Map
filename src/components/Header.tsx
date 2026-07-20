@@ -11,6 +11,9 @@ interface HeaderProps {
   onImport: (file: File) => void;
   onResetToSeed: () => void;
   companyCount: number;
+  matchCount: number;
+  query: string;
+  onQueryChange: (query: string) => void;
 }
 
 export function Header({
@@ -23,6 +26,9 @@ export function Header({
   onImport,
   onResetToSeed,
   companyCount,
+  matchCount,
+  query,
+  onQueryChange,
 }: HeaderProps) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [draftTitle, setDraftTitle] = useState(title);
@@ -32,6 +38,8 @@ export function Header({
     onTitleChange(draftTitle.trim() || title);
     setEditingTitle(false);
   };
+
+  const searching = query.trim().length > 0;
 
   return (
     <header className="app-header">
@@ -62,10 +70,21 @@ export function Header({
             {title}
           </h1>
         )}
-        <span className="company-count-badge">{companyCount} companies</span>
+        <span className="company-count-badge">
+          {searching ? `${matchCount} of ${companyCount} companies` : `${companyCount} companies`}
+        </span>
       </div>
 
       <div className="app-header-controls">
+        <input
+          className="search-input"
+          type="search"
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder="Search companies…"
+          aria-label="Search companies"
+        />
+
         <div className="view-toggle">
           <button
             className={view === "map" ? "active" : ""}

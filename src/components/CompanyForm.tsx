@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
+import { CAPABILITY_AXIS, DOMAIN_AXIS } from "../config/taxonomy";
 import type { CompanyDraft } from "../types";
 import { CompanyLogo } from "./CompanyLogo";
 
 interface CompanyFormProps {
   initial: CompanyDraft;
   isEditing: boolean;
-  domains: string[];
-  bandLabels: string[];
   onSave: (draft: CompanyDraft) => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -15,8 +14,6 @@ interface CompanyFormProps {
 export function CompanyForm({
   initial,
   isEditing,
-  domains,
-  bandLabels,
   onSave,
   onCancel,
   onDelete,
@@ -68,20 +65,45 @@ export function CompanyForm({
 
         <div className="form-row">
           <div className="form-field">
-            <label htmlFor="cf-domain">Domain</label>
+            <label htmlFor="cf-domain">Scientific domain</label>
             <select
               id="cf-domain"
               value={draft.domain}
               onChange={(e) => set("domain", e.target.value)}
             >
-              {domains.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
+              {DOMAIN_AXIS.map((group) => (
+                <optgroup key={group.id} label={group.label ?? " "}>
+                  {group.leaves.map((leaf) => (
+                    <option key={leaf.id} value={leaf.id}>
+                      {leaf.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
 
+          <div className="form-field">
+            <label htmlFor="cf-capability">Capability</label>
+            <select
+              id="cf-capability"
+              value={draft.capabilityRow}
+              onChange={(e) => set("capabilityRow", e.target.value)}
+            >
+              {CAPABILITY_AXIS.map((group) => (
+                <optgroup key={group.id} label={group.label ?? " "}>
+                  {group.leaves.map((leaf) => (
+                    <option key={leaf.id} value={leaf.id}>
+                      {leaf.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="form-row">
           <div className="form-field">
             <label htmlFor="cf-tag">Tag (optional)</label>
             <input
@@ -91,24 +113,22 @@ export function CompanyForm({
               placeholder="e.g. Autonomous lab"
             />
           </div>
-        </div>
-
-        <div className="form-field">
-          <label htmlFor="cf-execution">
-            Full-stack execution / autonomy: <strong>{Math.round(draft.execution)}</strong>
-          </label>
-          <input
-            id="cf-execution"
-            type="range"
-            min={0}
-            max={100}
-            value={draft.execution}
-            onChange={(e) => set("execution", Number(e.target.value))}
-          />
-          <div className="slider-scale">
-            {bandLabels.map((label) => (
-              <span key={label}>{label}</span>
-            ))}
+          <div className="form-field">
+            <label htmlFor="cf-founded">Founded year (optional)</label>
+            <input
+              id="cf-founded"
+              type="number"
+              min={1900}
+              max={2100}
+              value={draft.foundedYear ?? ""}
+              onChange={(e) =>
+                set(
+                  "foundedYear",
+                  e.target.value ? Number(e.target.value) : undefined
+                )
+              }
+              placeholder="e.g. 2023"
+            />
           </div>
         </div>
 
@@ -130,7 +150,7 @@ export function CompanyForm({
             rows={2}
             value={draft.rationale}
             onChange={(e) => set("rationale", e.target.value)}
-            placeholder="Rationale for this domain/execution position"
+            placeholder="Rationale for this domain/capability position"
           />
         </div>
 
