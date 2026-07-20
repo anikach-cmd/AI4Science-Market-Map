@@ -16,5 +16,12 @@ export function cellKey(domainLeafId: string, capabilityLeafId: string): string 
   return `${domainLeafId}::${capabilityLeafId}`;
 }
 
-/** Max chips shown inline in a cell before collapsing into a "+N more" chip. */
-export const MAX_INLINE_CHIPS = 4;
+/**
+ * Column/row track weight for a leaf, biased by how many companies it holds
+ * so dense categories (e.g. Generalist) get visibly more space than sparse
+ * ones (e.g. Earth Science) without going fully linear (which would make a
+ * 90-company column ~90x wider than a 1-company one).
+ */
+export function trackWeight(count: number): number {
+  return Math.sqrt(count) + 1;
+}

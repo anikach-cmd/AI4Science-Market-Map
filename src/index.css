@@ -234,27 +234,27 @@ button {
   border: 1px solid var(--border);
 }
 
-.map-grid-wrapper {
+.map-super-grid {
   flex: 1;
-  display: flex;
-  gap: 0;
-  min-height: 620px;
+  display: grid;
+  gap: 3px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  align-items: stretch;
 }
 
-.map-y-axis {
-  display: flex;
-  flex-shrink: 0;
-  gap: 6px;
-  padding-top: 64px;
-  padding-bottom: 0;
+.map-corner-spacer {
+  background: var(--cream);
 }
 
-.y-axis-groups {
+.axis-group-span-column,
+.axis-group-span-row {
+  background: var(--cream);
   display: flex;
-  flex-direction: column;
-  width: 26px;
-  flex-shrink: 0;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
 }
 
 .axis-group-span-column {
@@ -315,14 +315,6 @@ button {
   writing-mode: horizontal-tb;
 }
 
-.y-axis-leaves {
-  display: flex;
-  flex-direction: column;
-  width: 158px;
-  flex-shrink: 0;
-  gap: 4px;
-}
-
 .band-label {
   background: var(--sage);
   color: white;
@@ -367,33 +359,8 @@ button {
   opacity: 0.85;
 }
 
-.map-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.map-columns-header {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-bottom: 4px;
-}
-
-.x-axis-groups {
-  display: flex;
-  height: 22px;
-  gap: 2px;
-}
-
-.x-axis-leaves {
-  display: flex;
-  height: 42px;
-  gap: 2px;
-}
-
 .map-column-header {
+  background: var(--cream);
   color: var(--sage-dark);
   display: flex;
   flex-direction: column;
@@ -441,26 +408,9 @@ button {
   color: var(--ink-soft);
 }
 
-.map-plot {
-  flex: 1;
-  display: flex;
-  gap: 2px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.map-column-track {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
 .map-cell {
-  flex: 1;
   min-height: 64px;
+  min-width: 0;
   background: var(--card-bg);
   padding: 6px;
   display: flex;
@@ -473,27 +423,6 @@ button {
 
 .map-cell:hover {
   background: var(--cream-dark);
-}
-
-.cell-more-chip {
-  display: inline-flex;
-  align-items: center;
-  font-family: inherit;
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--sage-dark);
-  background: var(--cream-dark);
-  border: 1px dashed var(--sage);
-  border-radius: 999px;
-  padding: 5px 12px;
-  cursor: pointer;
-  height: 30px;
-}
-
-.cell-more-chip:hover {
-  background: var(--sage);
-  color: white;
-  border-style: solid;
 }
 
 /* ---------------- Company chip ---------------- */
@@ -523,6 +452,9 @@ button {
 .company-chip-dragging {
   cursor: grabbing;
   box-shadow: var(--shadow-lg);
+  /* Let elementFromPoint (drop-target detection) see the cell underneath
+     instead of hitting this chip, which sits directly over the cursor. */
+  pointer-events: none;
 }
 
 .company-chip-grid {
@@ -818,73 +750,3 @@ button {
   border-radius: 50%;
 }
 
-/* ---------------- Cell detail panel ---------------- */
-
-.cell-detail-card {
-  max-width: 560px;
-}
-
-.cell-detail-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.cell-detail-sep {
-  color: var(--sage);
-  font-weight: 400;
-}
-
-.cell-detail-count {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-soft);
-  white-space: nowrap;
-}
-
-.cell-detail-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 50vh;
-  overflow-y: auto;
-  margin-bottom: 10px;
-}
-
-.cell-detail-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  padding: 8px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.cell-detail-row:hover {
-  background: var(--cream-dark);
-}
-
-.cell-detail-row-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.cell-detail-row-name {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.cell-detail-row-desc {
-  font-size: 12px;
-  color: var(--ink-soft);
-  line-height: 1.4;
-}
