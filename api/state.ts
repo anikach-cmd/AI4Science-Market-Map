@@ -5,7 +5,7 @@ import {
   syncCompaniesToNotion,
   type CompanyLike,
   type NotionPageMap,
-} from "./_lib/notion";
+} from "./_lib/notion.js";
 
 const STATE_KEY = "map-state";
 const NOTION_PAGE_MAP_KEY = "notion-page-map";
