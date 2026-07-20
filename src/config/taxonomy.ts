@@ -39,6 +39,7 @@ export const DOMAIN_AXIS: AxisGroup[] = [
     id: "physical-sciences",
     label: "Physical Sciences",
     leaves: [
+      { id: "materials-science", label: "Materials Science" },
       { id: "physics", label: "Physics" },
       { id: "earth-science", label: "Earth Science" },
     ],
