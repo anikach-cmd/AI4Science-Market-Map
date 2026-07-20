@@ -1,7 +1,14 @@
 import { Redis } from "@upstash/redis";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import {
+  notionConfigured,
+  syncCompaniesToNotion,
+  type CompanyLike,
+  type NotionPageMap,
+} from "./_lib/notion";
 
 const STATE_KEY = "map-state";
+const NOTION_PAGE_MAP_KEY = "notion-page-map";
 
 // Works with the env var names injected by either the Upstash-for-Redis or
 // legacy Vercel KV marketplace integration — whichever is present.
@@ -14,7 +21,7 @@ const redis = url && token ? new Redis({ url, token }) : null;
 
 interface MapState {
   title: string;
-  companies: unknown[];
+  companies: CompanyLike[];
   labelOverrides?: Record<string, string>;
 }
 
@@ -51,12 +58,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.status(400).json({ error: "Expected { title, companies, labelOverrides? }" });
       return;
     }
+
+    let previous: MapState | null = null;
+    try {
+      previous = (await redis.get<MapState>(STATE_KEY)) ?? null;
+    } catch {
+      previous = null;
+    }
+
     try {
       await redis.set(STATE_KEY, req.body);
-      res.status(200).json({ ok: true });
     } catch {
       res.status(500).json({ error: "Failed to save state" });
+      return;
     }
+
+    // Redis is the real save and has already succeeded above — Notion is a
+    // best-effort mirror. Any failure here must never fail this request.
+    if (notionConfigured()) {
+      try {
+        const previousPageMap =
+          (await redis.get<NotionPageMap>(NOTION_PAGE_MAP_KEY)) ?? {};
+        const nextPageMap = await syncCompaniesToNotion(
+          req.body.companies,
+          previous?.companies ?? [],
+          previousPageMap
+        );
+        await redis.set(NOTION_PAGE_MAP_KEY, nextPageMap);
+      } catch (err) {
+        console.error("Notion mirror sync failed", err);
+      }
+    }
+
+    res.status(200).json({ ok: true });
     return;
   }
 
