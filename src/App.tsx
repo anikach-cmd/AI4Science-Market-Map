@@ -3,7 +3,8 @@ import { CompanyForm } from "./components/CompanyForm";
 import { GridView } from "./components/GridView";
 import { Header } from "./components/Header";
 import { MapView } from "./components/MapView";
-import { useMapState } from "./hooks/useMapState";
+import { flattenLeaves } from "./config/taxonomy";
+import { useMapState, type AxisKind } from "./hooks/useMapState";
 import type { CompanyDraft, ViewMode } from "./types";
 
 function App() {
@@ -14,8 +15,14 @@ function App() {
     addCompany,
     updateCompany,
     deleteCompany,
-    labelOverrides,
-    renameLabel,
+    domainAxis,
+    capabilityAxis,
+    renameAxisNode,
+    addAxisGroup,
+    addAxisLeaf,
+    removeAxisLeaf,
+    moveAxisLeaf,
+    moveAxisGroup,
     resetToSeed,
     exportJson,
     importJson,
@@ -34,11 +41,24 @@ function App() {
   const emptyDraft: CompanyDraft = {
     name: "",
     websiteUrl: "",
-    domain: "generalist",
-    capabilityRow: "generative-models",
+    domain: flattenLeaves(domainAxis)[0]?.id ?? "",
+    capabilityRow: flattenLeaves(capabilityAxis)[0]?.id ?? "",
     description: "",
     rationale: "",
     tag: "",
+  };
+
+  const handleRemoveAxisLeaf = (axis: AxisKind, leafId: string) => {
+    const occupied = companies.some((c) =>
+      axis === "domain" ? c.domain === leafId : c.capabilityRow === leafId
+    );
+    if (occupied) {
+      alert(
+        "Move or delete the companies in this category before removing it."
+      );
+      return;
+    }
+    removeAxisLeaf(axis, leafId);
   };
 
   return (
@@ -61,16 +81,24 @@ function App() {
       {view === "map" ? (
         <MapView
           companies={companies}
+          domainAxis={domainAxis}
+          capabilityAxis={capabilityAxis}
           onAdd={addCompany}
           onUpdate={updateCompany}
           onDelete={deleteCompany}
-          labelOverrides={labelOverrides}
-          onRenameLabel={renameLabel}
+          onRenameAxisNode={renameAxisNode}
+          onAddAxisGroup={addAxisGroup}
+          onAddAxisLeaf={addAxisLeaf}
+          onRemoveAxisLeaf={handleRemoveAxisLeaf}
+          onMoveAxisLeaf={moveAxisLeaf}
+          onMoveAxisGroup={moveAxisGroup}
           query={query}
         />
       ) : (
         <GridView
           companies={companies}
+          domainAxis={domainAxis}
+          capabilityAxis={capabilityAxis}
           onUpdate={updateCompany}
           onDelete={deleteCompany}
           query={query}
@@ -81,6 +109,8 @@ function App() {
         <CompanyForm
           initial={emptyDraft}
           isEditing={false}
+          domainAxis={domainAxis}
+          capabilityAxis={capabilityAxis}
           onCancel={() => setShowAddForm(false)}
           onSave={(draft) => {
             addCompany(draft);

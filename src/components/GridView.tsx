@@ -1,19 +1,28 @@
 import { useMemo, useState } from "react";
-import { DOMAIN_AXIS, flattenLeaves } from "../config/taxonomy";
+import { flattenLeaves, type AxisGroup } from "../config/taxonomy";
 import type { Company } from "../types";
 import { CompanyChip } from "./CompanyChip";
 import { CompanyForm } from "./CompanyForm";
 
 interface GridViewProps {
   companies: Company[];
+  domainAxis: AxisGroup[];
+  capabilityAxis: AxisGroup[];
   onUpdate: (id: string, draft: Omit<Company, "id">) => void;
   onDelete: (id: string) => void;
   query: string;
 }
 
-export function GridView({ companies, onUpdate, onDelete, query }: GridViewProps) {
+export function GridView({
+  companies,
+  domainAxis,
+  capabilityAxis,
+  onUpdate,
+  onDelete,
+  query,
+}: GridViewProps) {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
-  const domainLeaves = useMemo(() => flattenLeaves(DOMAIN_AXIS), []);
+  const domainLeaves = useMemo(() => flattenLeaves(domainAxis), [domainAxis]);
 
   const byDomain = useMemo(() => {
     const map = new Map<string, Company[]>();
@@ -57,6 +66,8 @@ export function GridView({ companies, onUpdate, onDelete, query }: GridViewProps
         <CompanyForm
           initial={editingCompany}
           isEditing
+          domainAxis={domainAxis}
+          capabilityAxis={capabilityAxis}
           onCancel={() => setEditingCompany(null)}
           onDelete={() => {
             onDelete(editingCompany.id);

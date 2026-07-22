@@ -1,8 +1,11 @@
 // ---------------------------------------------------------------------------
-// Fixed two-level axis taxonomy. Group/leaf structure is not user-editable
-// (no add/remove/reparent) — only leaf and group *labels* can be renamed live
-// from the UI. `id` is what Company.domain / Company.capabilityRow store, so
-// renaming a label never breaks existing data.
+// Default two-level axis taxonomy. This is only the *starting point* — the
+// live structure (groups, leaves, order, labels) is persisted in app state
+// (see useMapState.ts) and is fully editable from the UI: add/remove/reorder
+// columns and rows, not just rename them. These DEFAULT_* constants are used
+// to seed a fresh install and as a migration fallback for older persisted
+// state that predates structural editing. `id` is what Company.domain /
+// Company.capabilityRow store, so renaming a label never breaks existing data.
 // ---------------------------------------------------------------------------
 
 export interface AxisLeaf {
@@ -18,7 +21,7 @@ export interface AxisGroup {
 }
 
 // X-axis: Scientific domain.
-export const DOMAIN_AXIS: AxisGroup[] = [
+export const DEFAULT_DOMAIN_AXIS: AxisGroup[] = [
   {
     id: "generalist",
     label: null,
@@ -48,7 +51,7 @@ export const DOMAIN_AXIS: AxisGroup[] = [
 
 // Y-axis: Capability. Listed here in top (most autonomous) -> bottom
 // (least autonomous) render order, matching the vertical layout on screen.
-export const CAPABILITY_AXIS: AxisGroup[] = [
+export const DEFAULT_CAPABILITY_AXIS: AxisGroup[] = [
   {
     id: "closed-loop",
     label: null,

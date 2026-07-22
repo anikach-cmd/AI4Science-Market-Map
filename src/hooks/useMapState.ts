@@ -1,27 +1,58 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  DEFAULT_CAPABILITY_AXIS,
+  DEFAULT_DOMAIN_AXIS,
+  type AxisGroup,
+} from "../config/taxonomy";
 import { SEED_COMPANIES } from "../data/seedCompanies";
 import type { Company, CompanyDraft } from "../types";
 
-const STORAGE_KEY = "ai-science-market-map:v2:state";
+const STORAGE_KEY = "ai-science-market-map:v3:state";
 const DEFAULT_TITLE = "AI for Science market map";
 const SAVE_DEBOUNCE_MS = 800;
+
+export type AxisKind = "domain" | "capability";
 
 interface MapState {
   title: string;
   companies: Company[];
-  labelOverrides: Record<string, string>;
+  domainAxis: AxisGroup[];
+  capabilityAxis: AxisGroup[];
 }
 
 const DEFAULT_STATE: MapState = {
   title: DEFAULT_TITLE,
   companies: SEED_COMPANIES,
-  labelOverrides: {},
+  domainAxis: DEFAULT_DOMAIN_AXIS,
+  capabilityAxis: DEFAULT_CAPABILITY_AXIS,
 };
 
-function isMapState(value: unknown): value is MapState {
+function isMapStateLike(value: unknown): value is Record<string, unknown> & {
+  title: string;
+  companies: unknown[];
+} {
   if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return typeof v.title === "string" && Array.isArray(v.companies);
+}
+
+/** Fills in domainAxis/capabilityAxis with defaults for state saved before
+ * structural axis editing existed (or any other malformed/missing field). */
+function normalizeState(parsed: Record<string, unknown>): MapState {
+  const domainAxis =
+    Array.isArray(parsed.domainAxis) && parsed.domainAxis.length > 0
+      ? (parsed.domainAxis as AxisGroup[])
+      : DEFAULT_DOMAIN_AXIS;
+  const capabilityAxis =
+    Array.isArray(parsed.capabilityAxis) && parsed.capabilityAxis.length > 0
+      ? (parsed.capabilityAxis as AxisGroup[])
+      : DEFAULT_CAPABILITY_AXIS;
+  return {
+    title: parsed.title as string,
+    companies: parsed.companies as Company[],
+    domainAxis,
+    capabilityAxis,
+  };
 }
 
 function loadLocal(): MapState {
@@ -29,14 +60,7 @@ function loadLocal(): MapState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_STATE;
     const parsed = JSON.parse(raw);
-    if (isMapState(parsed)) {
-      return {
-        title: parsed.title,
-        companies: parsed.companies,
-        labelOverrides: parsed.labelOverrides ?? {},
-      };
-    }
-    return DEFAULT_STATE;
+    return isMapStateLike(parsed) ? normalizeState(parsed) : DEFAULT_STATE;
   } catch {
     return DEFAULT_STATE;
   }
@@ -50,17 +74,86 @@ function saveLocal(state: MapState) {
   }
 }
 
-function makeId(): string {
-  return `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+function makeId(prefix = "c"): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// ---------------------------------------------------------------------------
+// Pure axis-structure helpers. Each takes/returns a fresh AxisGroup[] so they
+// drop straight into an immutable state update.
+// ---------------------------------------------------------------------------
+
+function renameAxisNodePure(groups: AxisGroup[], id: string, label: string): AxisGroup[] {
+  return groups.map((g) =>
+    g.id === id
+      ? { ...g, label }
+      : { ...g, leaves: g.leaves.map((l) => (l.id === id ? { ...l, label } : l)) }
+  );
+}
+
+function addAxisGroupPure(
+  groups: AxisGroup[],
+  label: string,
+  firstLeafLabel?: string
+): AxisGroup[] {
+  const leaves = firstLeafLabel ? [{ id: makeId("leaf"), label: firstLeafLabel }] : [];
+  return [...groups, { id: makeId("group"), label, leaves }];
+}
+
+function addAxisLeafPure(groups: AxisGroup[], groupId: string, label: string): AxisGroup[] {
+  const newLeaf = { id: makeId("leaf"), label };
+  return groups.map((g) =>
+    g.id === groupId ? { ...g, leaves: [...g.leaves, newLeaf] } : g
+  );
+}
+
+/** Removes a leaf; a group that drops to zero leaves is dropped too. */
+function removeAxisLeafPure(groups: AxisGroup[], leafId: string): AxisGroup[] {
+  return groups
+    .map((g) => ({ ...g, leaves: g.leaves.filter((l) => l.id !== leafId) }))
+    .filter((g) => g.leaves.length > 0);
+}
+
+function moveAxisLeafPure(groups: AxisGroup[], leafId: string, dir: -1 | 1): AxisGroup[] {
+  return groups.map((g) => {
+    const idx = g.leaves.findIndex((l) => l.id === leafId);
+    if (idx === -1) return g;
+    const target = idx + dir;
+    if (target < 0 || target >= g.leaves.length) return g;
+    const leaves = g.leaves.slice();
+    [leaves[idx], leaves[target]] = [leaves[target], leaves[idx]];
+    return { ...g, leaves };
+  });
+}
+
+function moveAxisGroupPure(groups: AxisGroup[], groupId: string, dir: -1 | 1): AxisGroup[] {
+  const idx = groups.findIndex((g) => g.id === groupId);
+  if (idx === -1) return groups;
+  const target = idx + dir;
+  if (target < 0 || target >= groups.length) return groups;
+  const next = groups.slice();
+  [next[idx], next[target]] = [next[target], next[idx]];
+  return next;
+}
+
+function updateAxis(
+  s: MapState,
+  axis: AxisKind,
+  updater: (groups: AxisGroup[]) => AxisGroup[]
+): MapState {
+  return axis === "domain"
+    ? { ...s, domainAxis: updater(s.domainAxis) }
+    : { ...s, capabilityAxis: updater(s.capabilityAxis) };
 }
 
 /**
- * Owns the entire map's persisted state (title, companies, axis label
- * overrides). Writes instantly to localStorage as a local cache, and
- * debounces a POST to /api/state so the same data is shared with everyone
- * who opens the deployed site (see api/state.ts + Vercel KV). In plain
- * `npm run dev` there is no /api route, so those requests fail silently and
- * the app runs exactly as it did on localStorage alone.
+ * Owns the entire map's persisted state (title, companies, and the fully
+ * editable domain/capability axis structure). Writes instantly to
+ * localStorage as a local cache, and debounces a POST to /api/state so the
+ * same data is shared with everyone who opens the deployed site (see
+ * api/state.ts + Redis). In plain `npm run dev` there is no /api route, so
+ * those requests fail silently and the app runs exactly as it did on
+ * localStorage alone.
  */
 export function useMapState() {
   const [state, setState] = useState<MapState>(loadLocal);
@@ -80,13 +173,9 @@ export function useMapState() {
     fetch("/api/state")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (cancelled || hasLocalEdit.current || !isMapState(data)) return;
+        if (cancelled || hasLocalEdit.current || !isMapStateLike(data)) return;
         skipNextPost.current = true;
-        setState({
-          title: data.title,
-          companies: data.companies,
-          labelOverrides: data.labelOverrides ?? {},
-        });
+        setState(normalizeState(data));
       })
       .catch(() => {
         // No API reachable (local dev, or offline) — local/seed state stands.
@@ -141,15 +230,37 @@ export function useMapState() {
     }));
   }, [setStateAndMarkEdited]);
 
-  const renameLabel = useCallback((id: string, label: string) => {
-    setStateAndMarkEdited((s) => ({
-      ...s,
-      labelOverrides: { ...s.labelOverrides, [id]: label },
-    }));
+  const renameAxisNode = useCallback((axis: AxisKind, id: string, label: string) => {
+    setStateAndMarkEdited((s) => updateAxis(s, axis, (g) => renameAxisNodePure(g, id, label)));
+  }, [setStateAndMarkEdited]);
+
+  const addAxisGroup = useCallback(
+    (axis: AxisKind, label: string, firstLeafLabel?: string) => {
+      setStateAndMarkEdited((s) =>
+        updateAxis(s, axis, (g) => addAxisGroupPure(g, label, firstLeafLabel))
+      );
+    },
+    [setStateAndMarkEdited]
+  );
+
+  const addAxisLeaf = useCallback((axis: AxisKind, groupId: string, label: string) => {
+    setStateAndMarkEdited((s) => updateAxis(s, axis, (g) => addAxisLeafPure(g, groupId, label)));
+  }, [setStateAndMarkEdited]);
+
+  const removeAxisLeaf = useCallback((axis: AxisKind, leafId: string) => {
+    setStateAndMarkEdited((s) => updateAxis(s, axis, (g) => removeAxisLeafPure(g, leafId)));
+  }, [setStateAndMarkEdited]);
+
+  const moveAxisLeaf = useCallback((axis: AxisKind, leafId: string, dir: -1 | 1) => {
+    setStateAndMarkEdited((s) => updateAxis(s, axis, (g) => moveAxisLeafPure(g, leafId, dir)));
+  }, [setStateAndMarkEdited]);
+
+  const moveAxisGroup = useCallback((axis: AxisKind, groupId: string, dir: -1 | 1) => {
+    setStateAndMarkEdited((s) => updateAxis(s, axis, (g) => moveAxisGroupPure(g, groupId, dir)));
   }, [setStateAndMarkEdited]);
 
   const resetToSeed = useCallback(() => {
-    setStateAndMarkEdited({ title: DEFAULT_TITLE, companies: SEED_COMPANIES, labelOverrides: {} });
+    setStateAndMarkEdited({ ...DEFAULT_STATE });
   }, [setStateAndMarkEdited]);
 
   const exportJson = useCallback(() => {
@@ -177,14 +288,10 @@ export function useMapState() {
           alert("That file doesn't look like a valid market map export.");
           return;
         }
-        setStateAndMarkEdited({
-          title: typeof parsed.title === "string" ? parsed.title : DEFAULT_TITLE,
-          companies: companiesList,
-          labelOverrides:
-            parsed && typeof parsed === "object" && parsed.labelOverrides
-              ? parsed.labelOverrides
-              : {},
-        });
+        const shaped = Array.isArray(parsed)
+          ? { title: DEFAULT_TITLE, companies: companiesList }
+          : parsed;
+        setStateAndMarkEdited(normalizeState({ ...shaped, companies: companiesList }));
       } catch {
         alert("That file doesn't look like a valid market map export.");
       }
@@ -198,8 +305,14 @@ export function useMapState() {
     addCompany,
     updateCompany,
     deleteCompany,
-    labelOverrides: state.labelOverrides,
-    renameLabel,
+    domainAxis: state.domainAxis,
+    capabilityAxis: state.capabilityAxis,
+    renameAxisNode,
+    addAxisGroup,
+    addAxisLeaf,
+    removeAxisLeaf,
+    moveAxisLeaf,
+    moveAxisGroup,
     resetToSeed,
     exportJson,
     importJson,

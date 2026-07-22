@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { CAPABILITY_AXIS, DOMAIN_AXIS } from "../config/taxonomy";
+import type { AxisGroup } from "../config/taxonomy";
 import type { CompanyDraft } from "../types";
 import { CompanyLogo } from "./CompanyLogo";
 
 interface CompanyFormProps {
   initial: CompanyDraft;
   isEditing: boolean;
+  domainAxis: AxisGroup[];
+  capabilityAxis: AxisGroup[];
   onSave: (draft: CompanyDraft) => void;
   onCancel: () => void;
   onDelete?: () => void;
@@ -14,6 +16,8 @@ interface CompanyFormProps {
 export function CompanyForm({
   initial,
   isEditing,
+  domainAxis,
+  capabilityAxis,
   onSave,
   onCancel,
   onDelete,
@@ -71,7 +75,7 @@ export function CompanyForm({
               value={draft.domain}
               onChange={(e) => set("domain", e.target.value)}
             >
-              {DOMAIN_AXIS.map((group) => (
+              {domainAxis.map((group) => (
                 <optgroup key={group.id} label={group.label ?? " "}>
                   {group.leaves.map((leaf) => (
                     <option key={leaf.id} value={leaf.id}>
@@ -90,7 +94,7 @@ export function CompanyForm({
               value={draft.capabilityRow}
               onChange={(e) => set("capabilityRow", e.target.value)}
             >
-              {CAPABILITY_AXIS.map((group) => (
+              {capabilityAxis.map((group) => (
                 <optgroup key={group.id} label={group.label ?? " "}>
                   {group.leaves.map((leaf) => (
                     <option key={leaf.id} value={leaf.id}>

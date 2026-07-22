@@ -1,9 +1,6 @@
 import { useMemo, useState } from "react";
-import {
-  CAPABILITY_AXIS,
-  DOMAIN_AXIS,
-  type AxisGroup,
-} from "../config/taxonomy";
+import { type AxisGroup } from "../config/taxonomy";
+import type { AxisKind } from "../hooks/useMapState";
 import type { Company, CompanyDraft } from "../types";
 import { cellKey, groupIntoCells, trackWeight } from "../utils/mapLayout";
 import { CompanyChip } from "./CompanyChip";
@@ -13,16 +10,18 @@ import { Legend } from "./Legend";
 
 interface MapViewProps {
   companies: Company[];
+  domainAxis: AxisGroup[];
+  capabilityAxis: AxisGroup[];
   onAdd: (draft: CompanyDraft) => void;
   onUpdate: (id: string, draft: CompanyDraft) => void;
   onDelete: (id: string) => void;
-  labelOverrides: Record<string, string>;
-  onRenameLabel: (id: string, label: string) => void;
+  onRenameAxisNode: (axis: AxisKind, id: string, label: string) => void;
+  onAddAxisGroup: (axis: AxisKind, label: string, firstLeafLabel?: string) => void;
+  onAddAxisLeaf: (axis: AxisKind, groupId: string, label: string) => void;
+  onRemoveAxisLeaf: (axis: AxisKind, leafId: string) => void;
+  onMoveAxisLeaf: (axis: AxisKind, leafId: string, direction: -1 | 1) => void;
+  onMoveAxisGroup: (axis: AxisKind, groupId: string, direction: -1 | 1) => void;
   query: string;
-}
-
-function labelFor(overrides: Record<string, string>, id: string, fallback: string) {
-  return overrides[id] ?? fallback;
 }
 
 /** Leaves of an axis, each carrying its 0-based position among all leaves. */
@@ -49,20 +48,30 @@ const LABEL_TRACKS = 2;
 
 export function MapView({
   companies,
+  domainAxis,
+  capabilityAxis,
   onAdd,
   onUpdate,
   onDelete,
-  labelOverrides,
-  onRenameLabel,
+  onRenameAxisNode,
+  onAddAxisGroup,
+  onAddAxisLeaf,
+  onRemoveAxisLeaf,
+  onMoveAxisLeaf,
+  onMoveAxisGroup,
   query,
 }: MapViewProps) {
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
   const [newDraft, setNewDraft] = useState<CompanyDraft | null>(null);
+  const [addingAxis, setAddingAxis] = useState<AxisKind | null>(null);
+  const [addGroupChoice, setAddGroupChoice] = useState<string>("__new__");
+  const [addNewGroupLabel, setAddNewGroupLabel] = useState("");
+  const [addLeafLabel, setAddLeafLabel] = useState("");
 
-  const domainLeaves = useMemo(() => indexedLeaves(DOMAIN_AXIS), []);
-  const capabilityLeaves = useMemo(() => indexedLeaves(CAPABILITY_AXIS), []);
-  const domainGroups = useMemo(() => indexedGroups(DOMAIN_AXIS), []);
-  const capabilityGroups = useMemo(() => indexedGroups(CAPABILITY_AXIS), []);
+  const domainLeaves = useMemo(() => indexedLeaves(domainAxis), [domainAxis]);
+  const capabilityLeaves = useMemo(() => indexedLeaves(capabilityAxis), [capabilityAxis]);
+  const domainGroups = useMemo(() => indexedGroups(domainAxis), [domainAxis]);
+  const capabilityGroups = useMemo(() => indexedGroups(capabilityAxis), [capabilityAxis]);
 
   const cells = useMemo(() => groupIntoCells(companies), [companies]);
 
@@ -130,6 +139,27 @@ export function MapView({
     onUpdate(id, { ...rest, domain, capabilityRow });
   };
 
+  const openAddForm = (axis: AxisKind) => {
+    const axisGroups = axis === "domain" ? domainAxis : capabilityAxis;
+    setAddingAxis(axis);
+    setAddGroupChoice(axisGroups[0]?.id ?? "__new__");
+    setAddNewGroupLabel("");
+    setAddLeafLabel("");
+  };
+
+  const closeAddForm = () => setAddingAxis(null);
+
+  const confirmAdd = () => {
+    if (!addingAxis || !addLeafLabel.trim()) return;
+    if (addGroupChoice === "__new__") {
+      if (!addNewGroupLabel.trim()) return;
+      onAddAxisGroup(addingAxis, addNewGroupLabel.trim(), addLeafLabel.trim());
+    } else {
+      onAddAxisLeaf(addingAxis, addGroupChoice, addLeafLabel.trim());
+    }
+    closeAddForm();
+  };
+
   return (
     <div className="map-view">
       <div className="map-legend">
@@ -138,9 +168,62 @@ export function MapView({
           Logo chip — hover for details, click to pin, drag to reposition
         </div>
         <div className="legend-item">Click empty space to add a company</div>
+        <button
+          type="button"
+          className="btn-add-axis"
+          onClick={() => openAddForm("domain")}
+        >
+          + Add column
+        </button>
+        <button
+          type="button"
+          className="btn-add-axis"
+          onClick={() => openAddForm("capability")}
+        >
+          + Add row
+        </button>
         <div className="legend-spacer" />
         <Legend />
       </div>
+
+      {addingAxis && (
+        <div className="axis-add-form">
+          <span className="axis-add-form-title">
+            New {addingAxis === "domain" ? "column" : "row"}
+          </span>
+          <select
+            value={addGroupChoice}
+            onChange={(e) => setAddGroupChoice(e.target.value)}
+          >
+            {(addingAxis === "domain" ? domainAxis : capabilityAxis).map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.label ?? "(ungrouped)"}
+              </option>
+            ))}
+            <option value="__new__">— New group —</option>
+          </select>
+          {addGroupChoice === "__new__" && (
+            <input
+              autoFocus
+              placeholder="New group name"
+              value={addNewGroupLabel}
+              onChange={(e) => setAddNewGroupLabel(e.target.value)}
+            />
+          )}
+          <input
+            placeholder={addingAxis === "domain" ? "Column name" : "Row name"}
+            value={addLeafLabel}
+            onChange={(e) => setAddLeafLabel(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && confirmAdd()}
+          />
+          <button type="button" className="btn btn-primary" onClick={confirmAdd}>
+            Add
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={closeAddForm}>
+            Cancel
+          </button>
+        </div>
+      )}
 
       <div
         className="map-super-grid"
@@ -168,10 +251,26 @@ export function MapView({
                 <EditableText
                   className="axis-group-label"
                   inputClassName="axis-group-label-input"
-                  value={labelFor(labelOverrides, group.id, group.label)}
-                  onCommit={(name) => onRenameLabel(group.id, name)}
+                  value={group.label}
+                  onCommit={(name) => onRenameAxisNode("domain", group.id, name)}
                   title="Click to rename"
                 />
+                <span className="axis-item-controls">
+                  <button
+                    type="button"
+                    title="Move left"
+                    onClick={() => onMoveAxisGroup("domain", group.id, -1)}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    title="Move right"
+                    onClick={() => onMoveAxisGroup("domain", group.id, 1)}
+                  >
+                    →
+                  </button>
+                </span>
               </div>
             )
         )}
@@ -185,12 +284,36 @@ export function MapView({
             <EditableText
               className="map-column-header-text"
               inputClassName="map-column-header-input"
-              value={labelFor(labelOverrides, leaf.id, leaf.label)}
-              onCommit={(name) => onRenameLabel(leaf.id, name)}
+              value={leaf.label}
+              onCommit={(name) => onRenameAxisNode("domain", leaf.id, name)}
               title="Click to rename"
             />
             <span className="map-column-header-count">
               {domainCounts.get(leaf.id) ?? 0} co.
+            </span>
+            <span className="axis-item-controls">
+              <button
+                type="button"
+                title="Move left"
+                onClick={() => onMoveAxisLeaf("domain", leaf.id, -1)}
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                title="Move right"
+                onClick={() => onMoveAxisLeaf("domain", leaf.id, 1)}
+              >
+                →
+              </button>
+              <button
+                type="button"
+                title="Remove column"
+                className="axis-item-remove"
+                onClick={() => onRemoveAxisLeaf("domain", leaf.id)}
+              >
+                ×
+              </button>
             </span>
           </div>
         ))}
@@ -209,10 +332,26 @@ export function MapView({
                 <EditableText
                   className="axis-group-label"
                   inputClassName="axis-group-label-input"
-                  value={labelFor(labelOverrides, group.id, group.label)}
-                  onCommit={(name) => onRenameLabel(group.id, name)}
+                  value={group.label}
+                  onCommit={(name) => onRenameAxisNode("capability", group.id, name)}
                   title="Click to rename"
                 />
+                <span className="axis-item-controls">
+                  <button
+                    type="button"
+                    title="Move up"
+                    onClick={() => onMoveAxisGroup("capability", group.id, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    title="Move down"
+                    onClick={() => onMoveAxisGroup("capability", group.id, 1)}
+                  >
+                    ↓
+                  </button>
+                </span>
               </div>
             )
         )}
@@ -226,12 +365,36 @@ export function MapView({
             <EditableText
               className="band-label-text"
               inputClassName="band-label-input"
-              value={labelFor(labelOverrides, leaf.id, leaf.label)}
-              onCommit={(name) => onRenameLabel(leaf.id, name)}
+              value={leaf.label}
+              onCommit={(name) => onRenameAxisNode("capability", leaf.id, name)}
               title="Click to rename"
             />
             <span className="band-label-count">
               {capabilityCounts.get(leaf.id) ?? 0} co.
+            </span>
+            <span className="axis-item-controls">
+              <button
+                type="button"
+                title="Move up"
+                onClick={() => onMoveAxisLeaf("capability", leaf.id, -1)}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                title="Move down"
+                onClick={() => onMoveAxisLeaf("capability", leaf.id, 1)}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                title="Remove row"
+                className="axis-item-remove"
+                onClick={() => onRemoveAxisLeaf("capability", leaf.id)}
+              >
+                ×
+              </button>
             </span>
           </div>
         ))}
@@ -278,6 +441,8 @@ export function MapView({
         <CompanyForm
           initial={newDraft}
           isEditing={false}
+          domainAxis={domainAxis}
+          capabilityAxis={capabilityAxis}
           onCancel={() => setNewDraft(null)}
           onSave={(draft) => {
             onAdd(draft);
@@ -290,6 +455,8 @@ export function MapView({
         <CompanyForm
           initial={editingCompany}
           isEditing
+          domainAxis={domainAxis}
+          capabilityAxis={capabilityAxis}
           onCancel={() => setEditingCompany(null)}
           onDelete={() => {
             onDelete(editingCompany.id);
