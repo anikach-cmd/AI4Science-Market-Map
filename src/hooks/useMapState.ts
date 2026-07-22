@@ -259,10 +259,6 @@ export function useMapState() {
     setStateAndMarkEdited((s) => updateAxis(s, axis, (g) => moveAxisGroupPure(g, groupId, dir)));
   }, [setStateAndMarkEdited]);
 
-  const resetToSeed = useCallback(() => {
-    setStateAndMarkEdited({ ...DEFAULT_STATE });
-  }, [setStateAndMarkEdited]);
-
   const exportJson = useCallback(() => {
     const blob = new Blob([JSON.stringify(state, null, 2)], {
       type: "application/json",
@@ -313,7 +309,6 @@ export function useMapState() {
     removeAxisLeaf,
     moveAxisLeaf,
     moveAxisGroup,
-    resetToSeed,
     exportJson,
     importJson,
   };

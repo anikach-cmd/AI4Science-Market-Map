@@ -23,7 +23,6 @@ function App() {
     removeAxisLeaf,
     moveAxisLeaf,
     moveAxisGroup,
-    resetToSeed,
     exportJson,
     importJson,
   } = useMapState();
@@ -71,7 +70,6 @@ function App() {
         onAddClick={() => setShowAddForm(true)}
         onExport={exportJson}
         onImport={importJson}
-        onResetToSeed={resetToSeed}
         companyCount={companies.length}
         matchCount={matchCount}
         query={query}

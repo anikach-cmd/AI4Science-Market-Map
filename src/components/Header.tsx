@@ -9,7 +9,6 @@ interface HeaderProps {
   onAddClick: () => void;
   onExport: () => void;
   onImport: (file: File) => void;
-  onResetToSeed: () => void;
   companyCount: number;
   matchCount: number;
   query: string;
@@ -24,7 +23,6 @@ export function Header({
   onAddClick,
   onExport,
   onImport,
-  onResetToSeed,
   companyCount,
   matchCount,
   query,
@@ -123,21 +121,6 @@ export function Header({
             e.target.value = "";
           }}
         />
-        <button
-          className="btn btn-ghost"
-          title="Discard current data and reload the built-in seed companies"
-          onClick={() => {
-            if (
-              window.confirm(
-                "Reset to the built-in seed companies? This replaces everything currently on the map — export first if you want to keep it."
-              )
-            ) {
-              onResetToSeed();
-            }
-          }}
-        >
-          Reset to seed data
-        </button>
       </div>
     </header>
   );

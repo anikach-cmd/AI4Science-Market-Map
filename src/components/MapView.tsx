@@ -92,7 +92,10 @@ export function MapView({
   const gridTemplateColumns = useMemo(
     () =>
       `26px 158px ${domainLeaves
-        .map(({ leaf }) => `${trackWeight(domainCounts.get(leaf.id) ?? 0)}fr`)
+        .map(
+          ({ leaf }) =>
+            `minmax(92px, ${trackWeight(domainCounts.get(leaf.id) ?? 0)}fr)`
+        )
         .join(" ")}`,
     [domainLeaves, domainCounts]
   );
@@ -100,7 +103,10 @@ export function MapView({
   const gridTemplateRows = useMemo(
     () =>
       `22px 42px ${capabilityLeaves
-        .map(({ leaf }) => `${trackWeight(capabilityCounts.get(leaf.id) ?? 0)}fr`)
+        .map(
+          ({ leaf }) =>
+            `minmax(56px, ${trackWeight(capabilityCounts.get(leaf.id) ?? 0)}fr)`
+        )
         .join(" ")}`,
     [capabilityLeaves, capabilityCounts]
   );
@@ -225,6 +231,7 @@ export function MapView({
         </div>
       )}
 
+      <div className="map-grid-scroll">
       <div
         className="map-super-grid"
         style={{ gridTemplateColumns, gridTemplateRows }}
@@ -435,6 +442,7 @@ export function MapView({
             );
           })
         )}
+      </div>
       </div>
 
       {newDraft && (
