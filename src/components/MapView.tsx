@@ -91,10 +91,10 @@ export function MapView({
 
   const gridTemplateColumns = useMemo(
     () =>
-      `26px 158px ${domainLeaves
+      `minmax(26px, auto) minmax(158px, auto) ${domainLeaves
         .map(
           ({ leaf }) =>
-            `minmax(92px, ${trackWeight(domainCounts.get(leaf.id) ?? 0)}fr)`
+            `minmax(112px, ${trackWeight(domainCounts.get(leaf.id) ?? 0)}fr)`
         )
         .join(" ")}`,
     [domainLeaves, domainCounts]
@@ -102,7 +102,7 @@ export function MapView({
 
   const gridTemplateRows = useMemo(
     () =>
-      `22px 42px ${capabilityLeaves
+      `minmax(22px, auto) minmax(42px, auto) ${capabilityLeaves
         .map(
           ({ leaf }) =>
             `minmax(56px, ${trackWeight(capabilityCounts.get(leaf.id) ?? 0)}fr)`
